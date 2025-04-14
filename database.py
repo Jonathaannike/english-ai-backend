@@ -8,3 +8,11 @@ DATABASE_URL = "postgresql://english_ai_db_user:DLJ3OkmshpcGg7Jzi4L6TsyrlUf38ejZ
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+# 👇 Esta es la función que Render dice que falta
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
