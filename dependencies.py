@@ -2,8 +2,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from .models import User
-from .schemas import UserLogin
+from models import User
+from schemas import UserLogin
 
 # Definir la URL de autorización (se puede usar para el OAuth2)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")

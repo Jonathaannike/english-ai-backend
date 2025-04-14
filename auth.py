@@ -2,9 +2,9 @@ from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from .models import User
-from .database import SessionLocal
-from .schemas import UserCreate  # Dependiendo de tu esquema de usuario
+from models import User
+from database import SessionLocal
+from schemas import UserCreate  # Dependiendo de tu esquema de usuario
 
 # 🔑 Clave secreta y algoritmo (usado para crear y decodificar el token)
 SECRET_KEY = "mi_clave_super_secreta"
