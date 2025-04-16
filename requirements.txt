@@ -1,21 +1,36 @@
-annotated-types==0.7.0
-anyio==4.9.0
-bcrypt==4.3.0
-click==8.1.8
-colorama==0.4.6
-fastapi==0.115.12
-greenlet==3.1.1
-h11==0.14.0
-idna==3.10
-passlib==1.7.4
-pydantic==2.11.3
-pydantic_core==2.33.1
-PyJWT==2.10.1
-sniffio==1.3.1
-SQLAlchemy==2.0.40
-starlette==0.46.1
-typing-inspection==0.4.0
-typing_extensions==4.13.1
-uvicorn==0.34.0
-psycopg2-binary
-python-jose
+# requirements.txt
+
+# Core FastAPI framework
+fastapi>=0.110.0,<0.112.0 # Pin major/minor versions is good practice
+
+# ASGI Server (uvicorn with standard extras for performance)
+uvicorn[standard]>=0.29.0,<0.30.0
+
+# Database ORM
+SQLAlchemy>=2.0.29,<2.1.0
+
+# PostgreSQL Driver (binary is often easier)
+psycopg2-binary>=2.9.9,<2.10.0
+
+# Password Hashing
+passlib[bcrypt]>=1.7.4,<1.8.0
+
+# JWT Handling
+python-jose[cryptography]>=3.3.0,<3.4.0
+
+# Pydantic (used by FastAPI, explicit pin)
+pydantic>=2.7.0,<2.8.0
+pydantic-settings>=2.0.0,<2.3.0 # For potential settings management
+email-validator>=2.0.0,<2.2.0 # Required by Pydantic's EmailStr
+
+# Environment variable loading (for .env files)
+python-dotenv>=1.0.1,<1.1.0
+
+# Required by FastAPI's OAuth2PasswordRequestForm (if used for login)
+python-multipart>=0.0.9,<0.0.10
+
+# Optional: For database migrations (recommended for production)
+# alembic>=1.13.1,<1.14.0
+
+# Optional: For improved console logging/debugging
+# rich>=13.7.1,<13.8.0
