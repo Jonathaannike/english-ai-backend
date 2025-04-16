@@ -3,6 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm # Use standard form for login
 from sqlalchemy.orm import Session
 from typing import List # To potentially return lists later
+from fastapi.middleware.cors import CORSMiddleware
 
 import crud
 import models
@@ -19,6 +20,31 @@ app = FastAPI(
     description="API for user authentication and potentially other features.",
     version="0.1.0"
 )
+
+# <<< --- ADD CORS MIDDLEWARE CONFIGURATION HERE --- >>>
+
+# Origins that are allowed to make requests to your API
+# Use "*" for testing/development only - BE VERY CAREFUL IN PRODUCTION
+# For production, replace "*" with your specific frontend URL(s)
+origins = [
+    "http://localhost",         # Common local origin
+    "http://localhost:8000",    # Origin for local FastAPI docs/app if served on 8000
+    "http://127.0.0.1",         # Alternative local origin
+    "http://127.0.0.1:8000",    # Alternative origin for local FastAPI docs/app
+    # Add the URL of your deployed frontend if you have one, e.g.,
+    # "https://your-frontend-app.com",
+    # "*" # Allows all origins - Use with caution!
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows specified origins or ["*"] for all
+    allow_credentials=True, # Allows cookies to be included in requests
+    allow_methods=["*"],    # Allows all standard methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],    # Allows all headers
+)
+
+# <<< --- END CORS MIDDLEWARE CONFIGURATION --- >>>
 
 # === User Registration ===
 @app.post("/register/", response_model=schemas.User, status_code=status.HTTP_201_CREATED, tags=["Authentication"])
