@@ -19,7 +19,8 @@ passlib[bcrypt]>=1.7.4,<1.8.0
 python-jose[cryptography]>=3.3.0,<3.4.0
 
 # Pydantic (used by FastAPI, explicit pin)
-pydantic>=2.7.0,<2.8.0
+pydantic==2.7.1
+pydantic-core==2.18.1
 pydantic-settings>=2.0.0,<2.3.0 # For potential settings management
 email-validator>=2.0.0,<2.2.0 # Required by Pydantic's EmailStr
 
