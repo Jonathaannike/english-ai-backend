@@ -1,38 +1,54 @@
 # schemas.py
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List # Import List
 
 # --- Token Schemas ---
+
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 class TokenData(BaseModel):
-    email: Optional[EmailStr] = None # Changed from 'sub' to 'email' for clarity if that's what you store
-
+    # Optional: Schema for data stored inside the JWT token
+    email: Optional[EmailStr] = None
 
 # --- User Schemas ---
-# Base properties shared by other schemas
+
 class UserBase(BaseModel):
-    email: EmailStr # Use EmailStr for validation
+    email: EmailStr # Use EmailStr for basic email validation
 
-# Properties required when creating a user (from request body)
 class UserCreate(UserBase):
-    password: str # Plain password coming in
+    # Schema for data needed when *creating* a user
+    password: str
 
-# Properties to return to client (never include password hash)
 class User(UserBase):
+    # Schema for data *returned* about a user (never return password hash)
     id: int
-    # Add other fields here that are safe to return, e.g.:
-    # name: Optional[str] = None
-    # is_active: bool
 
-    # This tells Pydantic to read data even if it's not a dict,
-    # but an ORM model (or other arbitrary object with attributes)
     class Config:
-        from_attributes = True # Changed from orm_mode = True in Pydantic v2
+        # Allows Pydantic model to be created from ORM objects (SQLAlchemy models)
+        from_attributes = True
 
-# (Optional) Schema for login if not using OAuth2PasswordRequestForm
 class UserLogin(BaseModel):
+    # Optional: Schema specifically for user login data
      email: EmailStr
      password: str
+
+# --- AI Exercise Schemas ---
+
+class MultipleChoiceQuestion(BaseModel):
+    # Structure for a single generated multiple-choice question
+    question_text: str
+    options: List[str]      # Use List from typing
+    correct_option: str
+
+class ExerciseResponse(BaseModel):
+    # Structure for the overall response from the AI generation endpoint
+    exercises: List[MultipleChoiceQuestion] # Use List from typing
+
+class ExerciseGenerationRequest(BaseModel):
+    # Structure for the request body when asking for exercises
+    topic: str
+    level: str
+    exercise_type: str
+    num_questions: int = 3 # Default to 3 questions if not specified in request
