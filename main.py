@@ -44,6 +44,7 @@ origins = [
     "http://localhost:8000",
     "http://127.0.0.1",
     "http://127.0.0.1:8000",
+    "http://127.0.0.1:5500",
     # e.g., "https://your-app-name.onrender.com"
 ]
 
