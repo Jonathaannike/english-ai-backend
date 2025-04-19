@@ -17,6 +17,8 @@ import models
 import schemas
 import auth
 from database import get_db # Removed 'engine' as it wasn't used directly here
+from google.cloud import translate_v2 as translate # Import the v2 client
+
 
 # Load environment variables from .env file for local development
 load_dotenv()
@@ -264,3 +266,48 @@ async def submit_answers(
 def read_root():
     """A simple root endpoint to confirm the API is running."""
     return {"message": "Welcome to the English Learning App API!"}
+
+
+# Initialize the client globally - it's generally safe and efficient
+# It will attempt to use credentials from the environment automatically
+# (like GOOGLE_APPLICATION_CREDENTIALS or potentially API key if ADC isn't set)
+# Ensure your API key is accessible via environment variable or ADC setup
+try:
+    # Instantiating client without explicit credentials relies on environment setup
+    translate_client = translate.Client()
+    print("Google Translate client initialized.")
+except Exception as e:
+    print(f"Error initializing Google Translate client: {e}")
+    translate_client = None # Indicate client failed to initialize
+
+@app.get("/translate", tags=["Translation"])
+async def translate_word(word: str, target_language: str = 'es'):
+    """
+    Translates a given word into the target language (defaults to Spanish 'es')
+    using Google Cloud Translation API. Requires API key environment variable.
+    """
+    if not translate_client:
+         raise HTTPException(status_code=503, detail="Translation service client not available.")
+    if not word:
+         raise HTTPException(status_code=400, detail="No 'word' provided for translation.")
+
+    try:
+        print(f"Translating '{word}' to '{target_language}'...")
+
+        # Call the Translation API
+        # The client library implicitly handles authentication using environment
+        # variables (like GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS) or ADC.
+        result = translate_client.translate(word, target_language=target_language)
+
+        print(f"Translation result: {result}")
+
+        translation = result['translatedText']
+        original = result['input']
+
+        return {"original": original, "translation": translation}
+
+    except Exception as e:
+        # Log the specific error from the translation API call
+        print(f"Error during Google Translate API call: {type(e).__name__} - {e}")
+        # Return an informative error response
+        raise HTTPException(status_code=500, detail=f"Translation failed: {e}")
