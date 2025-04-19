@@ -1,4 +1,4 @@
-# alembic/env.py - CORRECTED VERSION 6 (Explicit Schema)
+# alembic/env.py - CORRECTED VERSION 7 (Transaction Disabled in Online Mode)
 
 import os
 import sys
@@ -13,10 +13,8 @@ from alembic import context
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # --- IMPORT MODELS AND BASE ---
-# Import Base FIRST from where it's defined (now includes schema awareness)
-from database import Base, SCHEMA_NAME # <<< Import SCHEMA_NAME too
-# THEN import all models that use that Base to ensure they register
-import models # noqa F401 - This import is crucial!
+from database import Base, SCHEMA_NAME
+import models # noqa F401
 
 # --- END IMPORTS ---
 
@@ -25,8 +23,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set target_metadata using the imported Base's metadata
-target_metadata = Base.metadata # This metadata now knows about the schema
+target_metadata = Base.metadata
 
 # other values from the config...
 # ... etc.
@@ -39,9 +36,10 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        version_table_schema=SCHEMA_NAME, # <<< Add schema name
-        include_schemas=True             # <<< Add include schemas
+        version_table_schema=SCHEMA_NAME, # Keep schema awareness
+        include_schemas=True             # Keep schema awareness
     )
+    # Offline mode usually runs within its own transaction handling via script output
     with context.begin_transaction():
         context.run_migrations()
 
@@ -51,18 +49,21 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        # Pass schema to engine connection args if needed, but often covered by MetaData/context
-        # connect_args={"options": f"-csearch_path={SCHEMA_NAME}"} # Usually not needed here
     )
+
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            version_table_schema=SCHEMA_NAME, # <<< Add schema name
-            include_schemas=True             # <<< Add include schemas
+            version_table_schema=SCHEMA_NAME, # Keep schema awareness
+            include_schemas=True             # Keep schema awareness
         )
+
+# --- RESTORED SECTION ---
+        # Restore the transaction block:
         with context.begin_transaction():
-            context.run_migrations()
+           context.run_migrations()
+        # --- END RESTORED SECTION ---
 
 if context.is_offline_mode():
     run_migrations_offline()

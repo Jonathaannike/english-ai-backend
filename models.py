@@ -37,6 +37,8 @@ class Lesson(Base):
     questions = relationship("Question", back_populates="lesson", cascade="all, delete-orphan")
 
 
+# models.py - MODIFY the VocabularyItem class
+
 class VocabularyItem(Base):
     __tablename__ = "vocabulary_items"
 
@@ -44,9 +46,8 @@ class VocabularyItem(Base):
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
     word = Column(String, nullable=False)
     phonetic_guide = Column(String, nullable=True)
-    # created_at = Column(DateTime(timezone=True), server_default=func.now()) # Optional
+    translation = Column(String, nullable=True) 
 
-    # Relationship defined here
     lesson = relationship("Lesson", back_populates="vocabulary_items")
 
 

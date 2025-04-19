@@ -93,16 +93,24 @@ def get_lesson(db: Session, lesson_id: int) -> models.Lesson | None:
 
 # --- Vocabulary Item CRUD Functions ---
 
-def create_vocabulary_item(db: Session, lesson_id: int, word: str, phonetic_guide: str | None) -> models.VocabularyItem:
-    """Creates a new VocabularyItem record linked to a lesson."""
+# --- Vocabulary Item CRUD Functions ---
+
+def create_vocabulary_item(
+    db: Session,
+    lesson_id: int,
+    word: str,
+    phonetic_guide: Optional[str], # Keep using Optional from typing
+    translation: Optional[str]     # <<< ADDED parameter
+) -> models.VocabularyItem:
+    """Creates a new VocabularyItem record linked to a lesson, including translation."""
     db_item = models.VocabularyItem(
         lesson_id=lesson_id,
         word=word,
-        phonetic_guide=phonetic_guide
+        phonetic_guide=phonetic_guide,
+        translation=translation          # <<< ADDED assignment
     )
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
     return db_item
-
 # Ensure create_comprehension_question function is DEFINITELY NOT present below this line

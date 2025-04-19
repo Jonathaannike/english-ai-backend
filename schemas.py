@@ -74,9 +74,6 @@ class QuizResult(BaseModel):
     total_questions: int   # Total number of questions answered
     # You could add more detail later, like a list of correct/incorrect IDs
 
-# schemas.py
-# ... (keep existing schemas) ...
-
 # --- Lesson Schemas ---
 
 class LessonGenerationRequest(BaseModel):
@@ -89,6 +86,8 @@ class VocabularyItemResponse(BaseModel):
     id: int
     word: str
     phonetic_guide: Optional[str] # Allow for null if AI couldn't generate one
+    translation: Optional[str] = None
+    
 
     class Config:
         from_attributes = True # Enable creating from ORM model
@@ -104,3 +103,9 @@ class LessonResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class RichTranslationResponse(BaseModel):
+    primary_translation: str
+    part_of_speech: Optional[str] = None
+    other_meanings: Optional[List[str]] = None # List of alternative translations/meanings
+    # We could add example sentences later too
