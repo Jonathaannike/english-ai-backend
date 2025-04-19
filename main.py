@@ -16,6 +16,7 @@ import schemas
 import auth
 from database import engine, get_db
 
+
 # Load environment variables from .env file for local development
 load_dotenv()
 
@@ -119,14 +120,16 @@ async def generate_test_text():
 # Change the function name from "generate_mcq_exercise" to "generate_exercise"
 # Add the 'params: schemas.ExerciseGenerationRequest' argument
 
+# Replace the ENTIRE generate_exercise function in main.py with this:
+
 @app.post("/generate/exercise", response_model=schemas.ExerciseResponse, tags=["AI Generation"])
-async def generate_exercise(params: schemas.ExerciseGenerationRequest): # Correct signature
+async def generate_exercise(params: schemas.ExerciseGenerationRequest, db: Session = Depends(get_db)):
     """
-    Generates exercises based on input parameters (topic, level, type, quantity).
+    Generates exercises based on input parameters (topic, level, type, quantity),
+    saves them to the database, and returns the saved exercises with their IDs.
     Output is validated against the ExerciseResponse schema.
     """
     # --- Build the prompt dynamically using input parameters ---
-    # This logic now belongs INSIDE the function
     prompt = f"""Generate exactly {params.num_questions} {params.exercise_type.replace('_', ' ')} grammar questions suitable for a {params.level} level English learner, focusing specifically on the topic: "{params.topic}".
 
 For each question, provide:
@@ -149,35 +152,123 @@ Example for a different topic:
     # --- End of dynamic prompt building ---
 
     # --- API Call and Response Processing ---
-    # This entire try/except block also belongs INSIDE the function
     try:
-        print(f"Generating {params.num_questions} {params.exercise_type} questions for {params.level} on '{params.topic}'...") # Updated log
+        print(f"Generating {params.num_questions} {params.exercise_type} questions for {params.level} on '{params.topic}'...")
         model = genai.GenerativeModel('gemini-1.5-flash')
-        # Use the dynamically generated 'prompt' variable
         response = await model.generate_content_async(prompt)
-        print("Received response from Gemini API (/generate/exercise).") # Updated log
+        print("Received response from Gemini API (/generate/exercise).")
 
-        # --- Process and Validate the Response ---
+        # --- Process, Validate, and SAVE the Response ---
         try:
             response_text = response.text.strip().removeprefix("```json").removesuffix("```").strip()
-            generated_exercises_raw = json.loads(response_text)
-            validated_response = schemas.ExerciseResponse(exercises=generated_exercises_raw)
-            return validated_response
+            generated_exercises_raw = json.loads(response_text) # Should be a list of dicts
+
+            if not isinstance(generated_exercises_raw, list):
+                print(f"Error: AI response was not a JSON list: {response_text}")
+                raise ValueError("AI response was not a JSON list.")
+
+            saved_questions_orm = [] # To store the Question ORM objects AFTER saving
+            for exercise_data in generated_exercises_raw:
+                # Basic validation of the dict structure from AI before saving
+                if not isinstance(exercise_data, dict) or not all(k in exercise_data for k in ("question_text", "options", "correct_option")):
+                    print(f"Warning: Skipping invalid exercise data format from AI: {exercise_data}")
+                    continue # Skip this malformed item
+
+                # Ensure options is a list (basic type check)
+                if not isinstance(exercise_data.get("options"), list):
+                     print(f"Warning: Skipping exercise data with invalid 'options' format: {exercise_data}")
+                     continue
+
+                try:
+                    # Create question in DB using CRUD function
+                    saved_q = crud.create_question(
+                        db=db,
+                        question_text=str(exercise_data["question_text"]),
+                        options=list(exercise_data["options"]), # Ensure it's a list
+                        correct_option=str(exercise_data["correct_option"])
+                        # Optional: Add level=params.level, topic=params.topic if storing them
+                    )
+                    saved_questions_orm.append(saved_q)
+                except Exception as db_error: # Catch potential DB errors during save
+                    print(f"Error saving question to DB: {db_error}. Data: {exercise_data}")
+                    # Decide if you want to continue saving others or raise immediately
+                    # For now, we just log and continue
+
+            # Check if we successfully saved any questions after the loop
+            if not saved_questions_orm:
+                 print(f"Error: No valid exercises could be saved from AI response: {response.text}")
+                 raise HTTPException(status_code=500, detail="Failed to process or save any valid exercises from AI response.")
+
+            # Create the final response using the list of saved ORM objects.
+            # Pydantic converts based on schemas.ExerciseResponse & schemas.MultipleChoiceQuestion Config
+            final_response = schemas.ExerciseResponse(exercises=saved_questions_orm)
+            return final_response
 
         except json.JSONDecodeError:
             print(f"Error: Failed to decode JSON from AI response: {response.text}")
             raise HTTPException(status_code=500, detail="AI returned non-JSON formatted content.")
-        except ValidationError as e:
-            print(f"Error: AI response failed validation: {e}. Response: {response.text}")
-            raise HTTPException(status_code=500, detail="AI response format did not match expected structure.")
+        # Removed explicit ValidationError catch as Pydantic handles conversion at the end
+        except ValueError as val_err: # Catch explicit ValueErrors we raised
+             print(f"Error validating AI response structure: {val_err}. Response: {response_text}")
+             raise HTTPException(status_code=500, detail=f"Invalid data structure from AI: {val_err}")
         except Exception as e_proc:
-             print(f"Error processing AI response: {type(e_proc).__name__} - {e_proc}")
-             raise HTTPException(status_code=500, detail="Error processing AI response.")
+             print(f"Error processing/saving AI response: {type(e_proc).__name__} - {e_proc}")
+             raise HTTPException(status_code=500, detail="Error processing or saving AI response.")
 
     except Exception as e_api:
-        print(f"Error during Gemini API call (/generate/exercise): {type(e_api).__name__} - {e_api}") # Updated log
+        print(f"Error during Gemini API call (/generate/exercise): {type(e_api).__name__} - {e_api}")
         raise HTTPException(status_code=500, detail="Failed to generate content due to an API error.")
 
 # --- End of the generate_exercise function ---
 
-# Your other endpoints like @app.get("/", ...) should follow after this function
+@app.post("/submit-answers", response_model=schemas.QuizResult, tags=["Quiz"])
+async def submit_answers(
+    submission: schemas.QuizSubmission, # Expects a body matching QuizSubmission schema
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user) # PROTECTED: Requires authentication
+):
+    """
+    Accepts a list of user answers, checks them against the database,
+    saves the attempt, and returns the score. Requires authentication.
+    """
+    correct_count = 0
+    total_count = len(submission.answers) # Total questions answered in this submission
+
+    if total_count == 0:
+        # Handle empty submission if necessary
+        return schemas.QuizResult(score=0, total_questions=0)
+
+    for answer in submission.answers:
+        # Get the corresponding question from the DB
+        question = crud.get_question(db=db, question_id=answer.question_id)
+
+        if not question:
+            # Handle case where question ID submitted doesn't exist
+            # Option 1: Skip this answer
+            print(f"Warning: Question ID {answer.question_id} not found. Skipping answer.")
+            # Option 2: Raise an error (might be better)
+            # raise HTTPException(status_code=404, detail=f"Question with ID {answer.question_id} not found.")
+            continue # Using Option 1 for now
+
+        # Check if the selected option is correct (case-sensitive comparison for now)
+        is_correct = (answer.selected_option == question.correct_option)
+
+        if is_correct:
+            correct_count += 1
+
+        # Save the user's answer attempt to the database
+        try:
+            crud.create_user_answer(
+                db=db,
+                user_id=current_user.id, # Get ID from logged-in user
+                question_id=answer.question_id,
+                selected_option=answer.selected_option,
+                is_correct=is_correct
+            )
+        except Exception as e:
+            # Log error if saving answer fails, but potentially continue scoring
+            print(f"Error saving user answer for question {answer.question_id}: {e}")
+            # Depending on requirements, you might want to handle this more robustly
+
+    # Return the results
+    return schemas.QuizResult(score=correct_count, total_questions=total_count)

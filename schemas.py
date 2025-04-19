@@ -38,9 +38,13 @@ class UserLogin(BaseModel):
 
 class MultipleChoiceQuestion(BaseModel):
     # Structure for a single generated multiple-choice question
+    id: int                  
     question_text: str
     options: List[str]      # Use List from typing
     correct_option: str
+
+    class Config:            
+        from_attributes = True
 
 class ExerciseResponse(BaseModel):
     # Structure for the overall response from the AI generation endpoint
@@ -52,3 +56,18 @@ class ExerciseGenerationRequest(BaseModel):
     level: str
     exercise_type: str
     num_questions: int = 3 # Default to 3 questions if not specified in request
+
+class AnswerSubmission(BaseModel):
+    # Represents a single answer sent by the user
+    question_id: int       # Which question is being answered
+    selected_option: str   # Which option the user chose
+
+class QuizSubmission(BaseModel):
+    # Represents the list of answers submitted for a quiz/set of exercises
+    answers: List[AnswerSubmission]
+
+class QuizResult(BaseModel):
+    # Represents the results returned after submitting answers
+    score: int             # Number of correct answers
+    total_questions: int   # Total number of questions answered
+    # You could add more detail later, like a list of correct/incorrect IDs
