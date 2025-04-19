@@ -1,53 +1,90 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, JSON # Added Boolean, ForeignKey, DateTime, JSON
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func # To set default timestamps
-from database import Base # Assuming Base is defined in database.py in the same directory
+# models.py - CORRECTED FINAL VERSION
 
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, JSON, Text
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+# Use the import that worked for init_db.py previously
+from database import Base
+# If the above causes import errors later, you might revert to:
+# from .database import Base # (Only if running as part of a formal package)
+
+# --- User Model ---
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    # Add other fields here if needed later, e.g.:
-    # name = Column(String, index=True)
-    # is_active = Column(Boolean, default=True)
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}')>"
-    
-# models.py
-# ... (keep existing User class) ...
+    # Relationship to UserAnswer defined below
 
-class Question(Base):
+
+# --- Lesson Models ---
+class Lesson(Base):
+    __tablename__ = "lessons"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    level = Column(String, index=True)
+    topic = Column(String, index=True)
+    text_passage = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships defined here
+    vocabulary_items = relationship("VocabularyItem", back_populates="lesson", cascade="all, delete-orphan")
+    questions = relationship("Question", back_populates="lesson", cascade="all, delete-orphan")
+
+
+class VocabularyItem(Base):
+    __tablename__ = "vocabulary_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
+    word = Column(String, nullable=False)
+    phonetic_guide = Column(String, nullable=True)
+    # created_at = Column(DateTime(timezone=True), server_default=func.now()) # Optional
+
+    # Relationship defined here
+    lesson = relationship("Lesson", back_populates="vocabulary_items")
+
+
+# --- Unified Question Model ---
+class Question(Base): # The single, correct, updated Question model
     __tablename__ = "questions"
 
     id = Column(Integer, primary_key=True, index=True)
     question_text = Column(String, nullable=False)
-    # Store options as JSON list ["option A", "option B", ...]
-    options = Column(JSON, nullable=False)
+    options = Column(JSON, nullable=False) # Expects list of strings ideally
     correct_option = Column(String, nullable=False)
-    # Optional: Add level, topic etc. if you want to categorize stored questions
-    # level = Column(String, index=True)
-    # topic = Column(String, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relationship to user answers (one question can have many answers)
-    user_answers = relationship("UserAnswer", back_populates="question")
+    # Link to Lesson (nullable because not all questions might belong to a lesson)
+    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=True, index=True)
+    # Type of question (e.g., 'grammar_mcq', 'comprehension_mcq', 'vocab_mcq')
+    question_type = Column(String, index=True, nullable=True)
+
+    # Relationships defined here
+    lesson = relationship("Lesson", back_populates="questions")
+    user_answers = relationship("UserAnswer", back_populates="question", cascade="all, delete-orphan")
 
 
+# --- User Answer Model ---
 class UserAnswer(Base):
     __tablename__ = "user_answers"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Link to User table
-    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False) # Link to Question table
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False) # Links to the unified Question model
     selected_option = Column(String, nullable=False)
     is_correct = Column(Boolean, nullable=False)
-    # Optional: Add attempt_id if grouping answers into quizzes/attempts
-    # attempt_id = Column(Integer, ForeignKey("attempts.id"))
     answered_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relationships to access User and Question objects from an answer
-    user = relationship("User") # No back_populates needed if User model doesn't link back
+    # Relationships defined here
+    # Added cascade option to User relationship if needed
+    user = relationship("User") # Can add back_populates="answers" to User if a user needs easy access to all their answers
     question = relationship("Question", back_populates="user_answers")
+
+# Ensure the old/duplicate Question class is NOT present anywhere else in this file.
+# Ensure the ComprehensionQuestion class is NOT present anywhere else in this file.

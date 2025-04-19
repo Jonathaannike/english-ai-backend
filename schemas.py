@@ -42,6 +42,8 @@ class MultipleChoiceQuestion(BaseModel):
     question_text: str
     options: List[str]      # Use List from typing
     correct_option: str
+    lesson_id: Optional[int] = None     # <<< ADDED: Optional lesson ID
+    question_type: Optional[str] = None # <<< ADDED: Optional question type
 
     class Config:            
         from_attributes = True
@@ -71,3 +73,34 @@ class QuizResult(BaseModel):
     score: int             # Number of correct answers
     total_questions: int   # Total number of questions answered
     # You could add more detail later, like a list of correct/incorrect IDs
+
+# schemas.py
+# ... (keep existing schemas) ...
+
+# --- Lesson Schemas ---
+
+class LessonGenerationRequest(BaseModel):
+    # Schema for the request body when asking to generate a lesson
+    topic: str  # e.g., "Daily Routines"
+    level: str  # e.g., "B1"
+
+class VocabularyItemResponse(BaseModel):
+    # How a single vocabulary item will look in the response
+    id: int
+    word: str
+    phonetic_guide: Optional[str] # Allow for null if AI couldn't generate one
+
+    class Config:
+        from_attributes = True # Enable creating from ORM model
+
+class LessonResponse(BaseModel):
+    id: int
+    title: str
+    level: str
+    topic: str
+    text_passage: str
+    vocabulary_items: List[VocabularyItemResponse]
+    questions: List[MultipleChoiceQuestion] # <<< MODIFIED: Renamed from comprehension_questions and uses updated MCQ schema
+
+    class Config:
+        from_attributes = True

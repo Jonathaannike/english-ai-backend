@@ -1,9 +1,13 @@
-# crud.py
+# crud.py - CORRECTED FINAL VERSION (Ensure create_comprehension_question is deleted)
+
 from sqlalchemy.orm import Session
+from typing import Optional, List
 import models
 import schemas
-from auth import hash_password
-# No need to import auth here usually, keep concerns separate
+# Import hash_password specifically if create_user uses it directly
+from auth import hash_password # Assuming verify_password not needed directly in crud
+
+# --- User CRUD Functions ---
 
 def get_user_by_email(db: Session, email: str):
     """Retrieves a user from the database by email."""
@@ -11,24 +15,34 @@ def get_user_by_email(db: Session, email: str):
 
 def create_user(db: Session, user: schemas.UserCreate):
     """Creates a new user in the database."""
-    # Import hash_password here or pass the hashed password directly
-    from auth import hash_password
-    hashed_password = hash_password(user.password)
-    db_user = models.User(email=user.email, hashed_password=hashed_password)
+    hashed_pwd = hash_password(user.password) # Use the imported function
+    db_user = models.User(email=user.email, hashed_password=hashed_pwd)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
 
+
 # --- Question CRUD Functions ---
 
-def create_question(db: Session, question_text: str, options: list[str], correct_option: str) -> models.Question:
-    """Creates and saves a new question to the database."""
+def create_question(
+    db: Session,
+    question_text: str,
+    options: list[str],
+    correct_option: str,
+    lesson_id: Optional[int] = None,
+    question_type: Optional[str] = None
+) -> models.Question:
+    """
+    Creates and saves a new question to the database, optionally linking
+    it to a lesson and specifying its type.
+    """
     db_question = models.Question(
         question_text=question_text,
-        options=options, # SQLAlchemy handles JSON conversion for JSON type
-        correct_option=correct_option
-        # Add level/topic here if you added them to the model
+        options=options,
+        correct_option=correct_option,
+        lesson_id=lesson_id,
+        question_type=question_type
     )
     db.add(db_question)
     db.commit()
@@ -38,6 +52,7 @@ def create_question(db: Session, question_text: str, options: list[str], correct
 def get_question(db: Session, question_id: int) -> models.Question | None:
     """Retrieves a question from the database by its ID."""
     return db.query(models.Question).filter(models.Question.id == question_id).first()
+
 
 # --- User Answer CRUD Functions ---
 
@@ -53,3 +68,41 @@ def create_user_answer(db: Session, user_id: int, question_id: int, selected_opt
     db.commit()
     db.refresh(db_user_answer)
     return db_user_answer
+
+
+# --- Lesson CRUD Functions ---
+
+def create_lesson(db: Session, title: str, level: str, topic: str, text_passage: str) -> models.Lesson:
+    """Creates a new Lesson record."""
+    db_lesson = models.Lesson(
+        title=title,
+        level=level,
+        topic=topic,
+        text_passage=text_passage
+    )
+    db.add(db_lesson)
+    db.commit()
+    db.refresh(db_lesson)
+    return db_lesson
+
+def get_lesson(db: Session, lesson_id: int) -> models.Lesson | None:
+     """Retrieves a single lesson by ID."""
+     # Note: Accessing relationships might trigger lazy loading.
+     return db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+
+
+# --- Vocabulary Item CRUD Functions ---
+
+def create_vocabulary_item(db: Session, lesson_id: int, word: str, phonetic_guide: str | None) -> models.VocabularyItem:
+    """Creates a new VocabularyItem record linked to a lesson."""
+    db_item = models.VocabularyItem(
+        lesson_id=lesson_id,
+        word=word,
+        phonetic_guide=phonetic_guide
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+# Ensure create_comprehension_question function is DEFINITELY NOT present below this line

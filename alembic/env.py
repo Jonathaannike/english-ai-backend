@@ -1,0 +1,70 @@
+# alembic/env.py - CORRECTED VERSION 6 (Explicit Schema)
+
+import os
+import sys
+from logging.config import fileConfig
+
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
+
+from alembic import context
+
+# --- PATH SETUP ---
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# --- IMPORT MODELS AND BASE ---
+# Import Base FIRST from where it's defined (now includes schema awareness)
+from database import Base, SCHEMA_NAME # <<< Import SCHEMA_NAME too
+# THEN import all models that use that Base to ensure they register
+import models # noqa F401 - This import is crucial!
+
+# --- END IMPORTS ---
+
+config = context.config
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# Set target_metadata using the imported Base's metadata
+target_metadata = Base.metadata # This metadata now knows about the schema
+
+# other values from the config...
+# ... etc.
+
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        version_table_schema=SCHEMA_NAME, # <<< Add schema name
+        include_schemas=True             # <<< Add include schemas
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+        # Pass schema to engine connection args if needed, but often covered by MetaData/context
+        # connect_args={"options": f"-csearch_path={SCHEMA_NAME}"} # Usually not needed here
+    )
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            version_table_schema=SCHEMA_NAME, # <<< Add schema name
+            include_schemas=True             # <<< Add include schemas
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
